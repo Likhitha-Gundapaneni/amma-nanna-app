@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+    <meta charset="UTF-8">
+    <title>అమ్మ నాన్న App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #f0f4f8;
+            margin: 0;
+        }
+        h1 { color: #1a5276; font-size: 28px; }
+        p { color: #555; font-size: 16px; }
+        #micBtn {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: #27ae60;
+            border: none;
+            font-size: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin: 20px;
+        }
+        #micBtn.recording {
+            background: #e74c3c;
+            animation: pulse 1s infinite;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+        }
+        #textInput {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        #sendBtn {
+            margin-top: 10px;
+            padding: 10px 30px;
+            background: #2980b9;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <h1>అమ్మ నాన్న App 🌾</h1>
+    <p>మీకు ఏమి కావాలో తెలుగులో అడగండి</p>
+
+    <button id="micBtn" onclick="toggleRecording()">🎤</button>
+    <p id="status">నొక్కి మాట్లాడండి</p>
+
+    <hr style="width:300px"/>
+    <p>లేదా టైప్ చేయండి:</p>
+    <input type="text" id="textInput" placeholder="రైతు బంధు డబ్బులు పట్టాయా?" />
+    <button id="sendBtn" onclick="sendText()">అడగండి</button>
+
+    <script>
+        let recorder, chunks = [], isRecording = false;
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recorder = new MediaRecorder(stream);
+            chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = sendAudio;
+            recorder.start();
+            isRecording = true;
+            document.getElementById("micBtn").classList.add("recording");
+            document.getElementById("micBtn").innerText = "⏹️";
+            document.getElementById("status").innerText = "వింటున్నాను...";
+        }
+
+        function stopRecording() {
+            recorder.stop();
+            isRecording = false;
+            document.getElementById("micBtn").classList.remove("recording");
+            document.getElementById("micBtn").innerText = "🎤";
+            document.getElementById("status").innerText = "సమాధానం తయారు చేస్తున్నాను...";
+        }
+
+        async function sendAudio() {
+            const blob = new Blob(chunks, { type: "audio/wav" });
+            const formData = new FormData();
+            formData.append("audio", blob, "voice.wav");
+            formData.append("farmer_id", "123456789");
+            await sendToBackend(formData);
+        }
+
+        async function sendText() {
+            const text = document.getElementById("textInput").value;
+            if (!text) return;
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("farmer_id", "123456789");
+            document.getElementById("status").innerText = "సమాధానం తయారు చేస్తున్నాను...";
+            await sendToBackend(formData);
+        }
+
+        async function sendToBackend(formData) {
+            try {
+                const res = await fetch("http://localhost:5000/process-voice", {
+                    method: "POST",
+                    body: formData
+                });
+                const audioBlob = await res.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                new Audio(audioUrl).play();
+                document.getElementById("status").innerText = "నొక్కి మాట్లాడండి";
+            } catch (err) {
+                document.getElementById("status").innerText = "Error! మళ్ళీ ట్రై చేయండి";
+            }
+        }
+    </script>
+</body>
+</html>
